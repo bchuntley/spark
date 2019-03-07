@@ -1,0 +1,21 @@
+{
+    "job": {
+        "hostname": "",
+        "image_location": "point to some docker image to download",
+        "desired_hosts": 3,
+        "url-map": "my-url.com",
+        "tags": ["dev", "if this field is missing/empty, the job will deployed to any server"],
+        "updates": {
+            "parallel": 1,
+            "min_health_time": "time in ms",
+            "max_health_time": "time in ms",
+            "auto_revert": true
+        },
+        "env": {
+            "environment variables go here": "values go here"
+        },
+        "docker_config": {
+            "docker config options goes here": ""
+        }
+    }
+}

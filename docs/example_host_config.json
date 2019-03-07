@@ -1,0 +1,7 @@
+{
+    "server": {
+        "host_name": "",
+        "siblings": ["10.19.25.168", "..."],
+        "tags": ["dev", "non-pci-compliant"]
+    }
+}
