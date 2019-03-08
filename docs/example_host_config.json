@@ -2,6 +2,11 @@
     "server": {
         "host_name": "",
         "siblings": ["10.19.25.168", "..."],
-        "tags": ["dev", "non-pci-compliant"]
+        "tags": ["dev", "non-pci-compliant"],
+        "health": "/_healthz",
+        "startup": {
+            "max_health_time": "time in ms",
+            "min_health_time": "time in ms"
+        }
     }
 }
