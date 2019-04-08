@@ -1,12 +1,12 @@
 {
     "server": {
-        "host_name": "",
+        "hostName": "",
         "siblings": ["10.19.25.168", "..."],
         "tags": ["dev", "non-pci-compliant"],
         "health": "/_healthz",
         "startup": {
-            "max_health_time": "time in ms",
-            "min_health_time": "time in ms"
+            "maxHealthTime": "time in ms",
+            "minHealthTime": "time in ms"
         }
     }
 }

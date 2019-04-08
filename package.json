@@ -1,0 +1,46 @@
+{
+  "name": "spark",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./dist/index.js",
+  "directories": {
+    "doc": "docs",
+    "example": "example"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "dev": "ts-node ./src/spark.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bchuntley/spark.git"
+  },
+  "author": "bchuntley",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bchuntley/spark/issues"
+  },
+  "homepage": "https://github.com/bchuntley/spark#readme",
+  "bin": {
+    "spark": "./dist/cli/spark.js"
+  },
+  "devDependencies": {
+    "@types/commander": "^2.12.2",
+    "@types/express": "^4.16.1",
+    "@types/node": "^11.13.0",
+    "eslint": "^5.16.0",
+    "nodemon": "^1.18.10",
+    "ts-node": "^8.0.3",
+    "tslint": "^5.15.0",
+    "typescript": "^3.4.1"
+  },
+  "dependencies": {
+    "@types/await-timeout": "^0.3.0",
+    "axios": "^0.18.0",
+    "commander": "^2.20.0",
+    "delay": "^4.1.0",
+    "express": "^4.16.4",
+    "winston": "^3.2.1"
+  }
+}
