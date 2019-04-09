@@ -1,13 +1,14 @@
 {
     "hostName": "127.0.0.1",
+    "id": 1,
     "port": 6543,
     "siblings": [
-        "127.0.0.1:7654",
-        "127.0.0.1:5432"
+        "http://127.0.0.1:7654",
+        "http://127.0.0.1:5432"
     ],
     "tags": [],
     "healthCheck": {
         "maxHealthTime": 10000,
-        "minHealthTime": 1000
+        "minHealthTime": 5000
     } 
 }

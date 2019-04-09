@@ -22,14 +22,14 @@ class Server implements SparkServer {
     constructor(options: ServerConfig) {
         this.hostName = options.hostName || 'SparkServer';
         this.tags = options.tags || [];
-        this.state = ServerState.Candidate;
+        this.state = ServerState.Follower;
         this.port = options.port;
         this.siblings = options.siblings.map(siblingHost => {
             const server: SparkServer = {
                 hostName: siblingHost,
                 tags: [],
                 siblings: [],
-                state: ServerState.Candidate,
+                state: ServerState.Follower,
                 connections: {}
             }
             return server;
@@ -50,8 +50,13 @@ class Server implements SparkServer {
         logger.info(`Initializing Spark Server on port ${this.port}`);
 
         this.httpServer.listen(this.port || 7654);
+        this.httpServer.use(express.json());
 
-        this.httpServer.use('/_healthz', routes.health);
+        this.httpServer.get('/_healthz', routes.health);
+        this.httpServer.get('/initialConnect', routes.initialConnect);
+        this.httpServer.post('/getVote', routes.getVote);
+        this.httpServer.post('/getUpdate', routes.getUpdate);
+        
 
         logger.info(`Spark server started`);
 
@@ -64,15 +69,38 @@ class Server implements SparkServer {
 
         await Promise.all(this.siblings.map(async sibling => {
 
-            const res = await this.heartbeat(sibling);
+            const res = await this.establish(sibling);
 
             if(res) {
                 logger.info(`Connected to ${sibling.hostName}`);
+
+                if (res.data.server.leader) {
+                    logger.info(`Leader found at ${res.data.server.leader.hostName}`);
+                    this.leader = (res.data.server.state == ServerState.Leader) ? res.data.server : res.data.server.leader;
+                    this.state = ServerState.Follower
+                }
             } else {
-                logger.info(`Unable to connect to ${sibling.hostName}`);
+                logger.error(`Unable to connect to ${sibling.hostName}`);
             }
         }));
 
+    }
+
+    establish = async (sibling: SparkServer) => {
+        logger.silly(`Establishing connection to sibling at ${sibling.hostName}`);
+
+        await delay(this.health.min);
+
+        let res;
+
+        try {
+            res = await axios.get(`${sibling.hostName}/initialConnect`, { timeout: this.health.max })
+        } catch (e) {
+            logger.error(`${sibling.hostName}/initialConnect timed out after ${this.health.max}ms `, e);
+            res = undefined;
+        }
+
+        return res;
     }
 
     heartbeat = async (sibling: SparkServer) => {
@@ -85,7 +113,7 @@ class Server implements SparkServer {
 
         try {
             passed = new Boolean(await axios.get(
-                `http://${sibling.hostName}/_healthz`,
+                `${sibling.hostName}/_healthz`,
                 { timeout: this.health.max }
             ));
         } catch (e) {
