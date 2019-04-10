@@ -5,6 +5,8 @@ import { ServerConfig, ServerState } from './models';
 import axios from 'axios';
 import delay from 'delay';
 
+const DELAY = 2500;
+
 class Spark {
     sparkServer!: Server;
     raft!: {
@@ -29,7 +31,7 @@ class Spark {
 
         await this.sparkServer.init();
 
-        if ( this.sparkServer.leader == undefined) {
+        if (this.sparkServer.leader == undefined) {
             logger.info(`Starting election process`);
             this.startElection();
         } else {
@@ -37,15 +39,15 @@ class Spark {
             this.raft.leaderActive = true;
             this.leaderTimeout();
         }
-        
+
     }
 
     startElection = async () => {
-        while(this.sparkServer.leader == undefined) {
+        while (this.sparkServer.leader == undefined) {
             logger.info(`Requesting votes`);
             const elected = await raft.startElection();
 
-            if(elected == true) {
+            if (elected == true) {
                 logger.info(`Successfully elected as leader`);
                 this.sparkServer.state = ServerState.Leader;
                 break;
@@ -64,9 +66,9 @@ class Spark {
     }
 
     leaderTimeout = async () => {
-        await delay(5000)
+        await delay(DELAY * 2)
 
-        if(this.raft.leaderActive) {
+        if (this.raft.leaderActive) {
             logger.info(`Leader timeout reset`);
             this.leaderTimeout();
         } else {
@@ -79,17 +81,22 @@ class Spark {
 
     distributeUpdates = async () => {
 
+        logger.info('Distributing updates');
+
         await Promise.all(this.sparkServer.siblings.map(async sibling => {
             try {
+                logger.info(`Sending update to ${sibling.hostName}`);
+
                 await axios.post(`${sibling.hostName}/getUpdate`)
-                logger.info(`Update sent succesfully to ${sibling.hostName}`);
+                logger.info(`Update sent succesfully to ${ sibling.hostName }`);
             } catch (e) {
-                logger.error(`Follower unreachable at ${sibling.hostName}`);
+                logger.error(`Follower unreachable at ${ sibling.hostName }`);
             }
-            
         }));
 
+        await delay(DELAY);
 
+        this.distributeUpdates();
     }
 
 
