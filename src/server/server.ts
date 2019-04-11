@@ -2,12 +2,12 @@ import express from 'express';
 import got from 'got';
 import delay from 'delay';
 import { EventEmitter } from 'events';
-import { performance } from 'perf_hooks';
 import * as routes from './routes';
 import { SparkServer, SparkJob, ConnectionStick, ServerState, ServerConfig } from "../models";
 import { logger } from "../utils";
+import lock from 'async-lock';
 
-
+const HEARTBEAT = 3000;
 class Server extends EventEmitter implements SparkServer {
     hostName: string;
     tags: string[];
@@ -18,8 +18,8 @@ class Server extends EventEmitter implements SparkServer {
         max: number;
         min: number;
     };
-    locked: boolean;
-    leader?: SparkServer;
+    lock: lock;
+    leader?: Partial<SparkServer>;
     port?: number;
     httpServer: express.Application;
 
@@ -39,16 +39,13 @@ class Server extends EventEmitter implements SparkServer {
             }
             return server;
         });
-        this.locked = false;
+        this.lock = new lock();
         this.health = {
             max: options.healthCheck.maxHealthTime,
             min: options.healthCheck.minHealthTime
         };
         this.leader = undefined;
         this.httpServer = express();
-
-        this.on('locked', this.lock);
-        this.on('unlocked', this.unlock);
         
         logger.info(`Initializing Spark Server on port ${this.port}`);
 
@@ -59,37 +56,19 @@ class Server extends EventEmitter implements SparkServer {
         this.httpServer.post('/initialConnect', routes.initialConnect);
         this.httpServer.post('/getVote', routes.getVote);
         this.httpServer.post('/getUpdate', routes.getUpdate);
-
-        this.setMaxListeners(1);
     }
 
     init = async () => {
         logger.info('Establishing connection to siblings...');
         this.connectSiblings();
-        this.emit('locked');
-        await delay(this.health.min);
-        this.emit('unlocked');
-    }
 
-    lock = () => {
-        this.locked = true;
+        await this.lock.acquire("lock", async () => {
+            await delay(this.health.min);
+            logger.info("Initialized... Ready for connections");
+        });
+        
     }
-
-    unlock = () => {
-        this.locked = false;
-    }
-
-    getLock = async () => {
-        if (this.locked) await new Promise(resolve => this.once('unlocked', resolve));
-        this.emit('locked');
-    }
-
-    releaseLock = async () => {
-        this.emit('unlocked');
-    }
-
     connectSiblings = async () => {
-
         await Promise.all(this.siblings.map(async sibling => {
             logger.info(`Attempting to connect to ${sibling.hostName}`);
 
@@ -103,9 +82,72 @@ class Server extends EventEmitter implements SparkServer {
                 });
 
             } catch (e) {
-                logger.error(`Error initializing connection to ${sibling.hostName}`);
+                logger.error(`Error initializing connection to ${sibling.hostName}`, e);
             }
         }));
+
+        // await this.lock.acquire('lock', async () => {
+        //     await this.removeLeader();
+        // });
+    }
+
+    requestVotes = async () => {
+        let possibleVotes = 1;
+        let totalVotes = 1;
+        await Promise.all(this.siblings.map(async sibling => {
+
+            logger.info(`Asking ${sibling.hostName} for their vote`);
+
+            try {
+                const res = await got.post(`${sibling.hostName}/getVote`, {
+                    json: true,
+                    timeout: this.health.max,
+                    body: {
+                        host: `${this.hostName}:${this.port}`,
+                    }
+                }); 
+                possibleVotes++;
+
+                if (res.body.voted) totalVotes++;
+
+            } catch (e) {
+                logger.error(`Host ${sibling.hostName} unreachable`, e);
+            }
+        }));
+
+        return totalVotes >= (possibleVotes/2)
+            
+    }
+
+    setLeader = async (leader: Partial<Server>) => {
+        logger.info(`Leader set to ${leader.hostName}`);
+        this.leader = leader
+        this.state = ServerState.Follower
+    }
+
+    removeLeader = async () => {
+        this.leader = undefined;
+        this.state = ServerState.Follower;
+    }
+
+    distributeUpdates = async () => {
+        await Promise.all(this.siblings.map(async sibling => {
+            logger.info(`Distributing update to ${sibling.hostName}`);
+            try {
+
+                await got.post(`${sibling.hostName}/getUpdate`, {
+                    timeout: this.health.max
+                });
+                
+                logger.info(`Update successfully distributed`);
+            } catch (e) {
+                logger.error(`Host ${sibling.hostName} unreachable `, e);
+            }   
+        }));
+
+        await delay(HEARTBEAT);
+
+        this.distributeUpdates();
     }
 }
 

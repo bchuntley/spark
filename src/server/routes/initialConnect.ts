@@ -5,26 +5,29 @@ import spark from '../../spark';
 
 const initialConnect = async (req: express.Request, res: express.Response) => {
     logger.info(`Connection request from ${req.body.host}`)
-    await spark.sparkServer.getLock();
+    await spark.sparkServer.lock.acquire("lock", async () => {
+        logger.info(`Responding to ${req.body.host}`);
 
-    logger.info(`Responding to ${req.body.host}`);
+        if ( spark.sparkServer.leader ) {
+            res.sendStatus(200);
 
-    const { hostName, tags, state, port, siblings, connections, health, leader } = spark.sparkServer;
+            logger.info(`New host at ${req.body.host} added. Triggering reelection`);
 
-    res.send({
-        server: {
-            hostName, 
-            tags, 
-            state, 
-            port, 
-            siblings, 
-            connections, 
-            health, 
-            leader
+        } else {
+            const { hostName, leader, state } = spark.sparkServer;
+
+            res.send({
+                server: {
+                    hostName,
+                    leader,
+                    state
+                }
+            }).status(200);
+            logger.info(`Successfully responded ${req.body.host}`);
         }
-    }).status(200);
-    logger.info(`Successfully responded ${req.body.host}`);
-    await spark.sparkServer.releaseLock();
+
+        
+    });
 }
 
 export default initialConnect;

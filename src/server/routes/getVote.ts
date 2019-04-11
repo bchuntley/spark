@@ -1,28 +1,29 @@
 import express from 'express';
-import delay from 'delay';
 import spark from '../../spark';
 import { ServerState } from '../../models';
 import { logger } from '../../utils';
 
 const getVote = async (req: express.Request, res: express.Response) => {
-    logger.info(`Vote requested from ${req.body.leader.hostName}`);
+    
+    logger.info(`Vote request from ${req.body.host}`);
 
-    if (!spark.sparkServer.leader) {
-        spark.sparkServer.leader = req.body.leader;
-        spark.sparkServer.state = ServerState.Follower;
+    logger.info(`Current leader: ${spark.sparkServer.leader ? spark.sparkServer.leader.hostName : "None"} Current state: ${ServerState[spark.sparkServer.state]}`);
 
-        logger.info(`Voting for ${req.body.leader.hostName}`);
+    if (spark.sparkServer.state === ServerState.Follower && !spark.sparkServer.leader) {
+        await spark.sparkServer.lock.acquire('lock', async () => {
+            spark.sparkServer.leader = {
+                hostName: req.body.host
+            };
 
-        res.send({
-            voted: true
-        }).status(200);
+            logger.info(`Voted for ${req.body.host}`);
+
+            res.send({voted: true}).status(200);
+        });
     } else {
+        
+        logger.info(`Did not vote for ${req.body.host}`);
 
-        logger.info(`Already voted for ${spark.sparkServer.leader.hostName}`);
-
-        res.send({
-            voted: false
-        }).status(200);
+        res.send({voted: false}).status(200);
     }
 }
 

@@ -1,105 +1,78 @@
 import { logger } from './utils';
 import Server from './server';
-import * as raft from './raft';
 import { ServerConfig, ServerState } from './models';
-import axios from 'axios';
 import delay from 'delay';
-
-const DELAY = 2500;
+import AbortController from 'abort-controller';
 
 class Spark {
     sparkServer!: Server;
-    raft!: {
-        startElection: () => Promise<void>,
-        leaderActive: boolean,
-        changelog: raft.Changelog
-    }
+    clearSignal: AbortController;
 
     constructor() {
-        this.raft = {
-            startElection: this.startElection,
-            leaderActive: false,
-            changelog: new raft.Changelog()
-        }
+        this.clearSignal = new AbortController();
     }
 
 
     init = async (serverConfig: ServerConfig) => {
         logger.info(`Initializing spark server`);
-
         this.sparkServer = new Server(serverConfig);
-
         await this.sparkServer.init();
-
-        // if (this.sparkServer.leader == undefined) {
-        //     logger.info(`Starting election process`);
-        //     this.startElection();
-        // } else {
-        //     logger.info(`Starting leader timeout`);
-        //     this.raft.leaderActive = true;
-        //     this.leaderTimeout();
-        // }
+        this.startElection();
 
     }
 
     startElection = async () => {
-        while (this.sparkServer.leader == undefined) {
-            logger.info(`Requesting votes`);
-            const elected = await raft.startElection();
+        logger.info('Starting election timeout...');
 
-            if (elected == true) {
-                logger.info(`Successfully elected as leader`);
-                this.sparkServer.state = ServerState.Leader;
-                break;
+        const electionTimeout = Math.floor((Math.random() * 300) + 0);
+
+        await delay(electionTimeout);
+
+        logger.info(`Waited for ${electionTimeout}ms`);
+
+        await this.sparkServer.lock.acquire('lock', async () => {
+            if (!this.sparkServer.leader && this.sparkServer.state == ServerState.Follower) {
+                this.sparkServer.state = ServerState.Candidate;
             }
-        }
+        });
 
-        logger.info(`Leader established`);
+        if (this.sparkServer.state === ServerState.Candidate) {
+            const elected = await this.sparkServer.requestVotes();
 
-        if (this.sparkServer.state == ServerState.Leader) {
-            logger.info(`Starting update distrubiton`);
-            this.distributeUpdates();
-        } else {
-            logger.info(`Starting leader timeout`);
-            this.leaderTimeout();
+            await this.sparkServer.lock.acquire('lock', async () => {
+                if (elected) {
+                    this.sparkServer.state = ServerState.Leader;
+                    this.sparkServer.leader = {
+                        hostName: this.sparkServer.hostName
+                    }
+                    logger.info('Elected! Distrubitng updates!');
+                    this.sparkServer.distributeUpdates();
+                } else {
+                    this.sparkServer.state = ServerState.Follower
+                    await delay(this.sparkServer.health.max);
+                    this.startElection();
+                }
+            });
         }
     }
 
-    leaderTimeout = async () => {
-        await delay(DELAY * 2)
-
-        if (this.raft.leaderActive) {
-            logger.info(`Leader timeout reset`);
-            this.leaderTimeout();
-        } else {
-            logger.info(`Leader timed out. Starting election process`);
-            this.startElection();
-        }
-
-        this.raft.leaderActive = false;
+    setLeaderTimeout = async () => {
+        try {
+            await delay(this.sparkServer.health.max, {signal: this.clearSignal.signal});
+            logger.info(`Connection to leader at ${this.sparkServer.leader!.hostName} lost... Reelecting`);
+            this.sparkServer.connectSiblings();
+        } catch (e) {  } // Do nothing with this error, its intentional when we abort the promise.
     }
 
-    distributeUpdates = async () => {
+    clearLeaderTimeout = async () => {
+        this.sparkServer.lock.acquire('lock', async () => {
+            logger.info(`${this.sparkServer.hostName} connection to leader at ${this.sparkServer.leader!.hostName} reestablished`);
+            this.clearSignal.abort();
+            this.setLeaderTimeout();
+        });
 
-        logger.info('Distributing updates');
-
-        await Promise.all(this.sparkServer.siblings.map(async sibling => {
-            try {
-                logger.info(`Sending update to ${sibling.hostName}`);
-
-                await axios.post(`${sibling.hostName}/getUpdate`)
-                logger.info(`Update sent succesfully to ${ sibling.hostName }`);
-            } catch (e) {
-                logger.error(`Follower unreachable at ${ sibling.hostName }`);
-            }
-        }));
-
-        await delay(DELAY);
-
-        this.distributeUpdates();
+        
     }
-
-
 }
 
 

@@ -26,6 +26,7 @@
     "spark": "./dist/cli/spark.js"
   },
   "devDependencies": {
+    "@types/async-lock": "^1.1.1",
     "@types/commander": "^2.12.2",
     "@types/express": "^4.16.1",
     "@types/got": "^9.4.1",
@@ -38,6 +39,8 @@
   },
   "dependencies": {
     "@types/await-timeout": "^0.3.0",
+    "abort-controller": "^3.0.0",
+    "async-lock": "^1.2.0",
     "axios": "^0.18.0",
     "commander": "^2.20.0",
     "delay": "^4.1.0",

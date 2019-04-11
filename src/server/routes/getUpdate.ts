@@ -2,10 +2,9 @@ import express from 'express';
 import spark from '../../spark';
 import { logger }from '../../utils';
 
-const getUpdate = (req: express.Request, res: express.Response) => {
-    
+const getUpdate = async (req: express.Request, res: express.Response) => {
+    await spark.clearLeaderTimeout();
     logger.info('Updated!');
-    spark.raft.leaderActive = true;
     res.sendStatus(200);
 }
 

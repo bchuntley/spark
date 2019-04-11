@@ -12,7 +12,7 @@ interface SparkServer {
     state: ServerState;
     siblings: SparkServer[];
     connections: ConnectionStick;
-    leader?: SparkServer;
+    leader?: Partial<SparkServer>;
     health?: {
         min: number,
         max: number
