@@ -1,10 +1,13 @@
 import express from 'express';
-import delay from 'delay';
+
+import { logger } from '../../utils'
 import spark from '../../spark';
 
 const initialConnect = async (req: express.Request, res: express.Response) => {
+    logger.info(`Connection request from ${req.body.host}`)
+    await spark.sparkServer.getLock();
 
-    await delay(spark.sparkServer.health.min);
+    logger.info(`Responding to ${req.body.host}`);
 
     const { hostName, tags, state, port, siblings, connections, health, leader } = spark.sparkServer;
 
@@ -20,8 +23,8 @@ const initialConnect = async (req: express.Request, res: express.Response) => {
             leader
         }
     }).status(200);
-
-    
+    logger.info(`Successfully responded ${req.body.host}`);
+    await spark.sparkServer.releaseLock();
 }
 
 export default initialConnect;

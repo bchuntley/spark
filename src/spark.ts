@@ -31,14 +31,14 @@ class Spark {
 
         await this.sparkServer.init();
 
-        if (this.sparkServer.leader == undefined) {
-            logger.info(`Starting election process`);
-            this.startElection();
-        } else {
-            logger.info(`Starting leader timeout`);
-            this.raft.leaderActive = true;
-            this.leaderTimeout();
-        }
+        // if (this.sparkServer.leader == undefined) {
+        //     logger.info(`Starting election process`);
+        //     this.startElection();
+        // } else {
+        //     logger.info(`Starting leader timeout`);
+        //     this.raft.leaderActive = true;
+        //     this.leaderTimeout();
+        // }
 
     }
 

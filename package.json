@@ -28,6 +28,7 @@
   "devDependencies": {
     "@types/commander": "^2.12.2",
     "@types/express": "^4.16.1",
+    "@types/got": "^9.4.1",
     "@types/node": "^11.13.0",
     "eslint": "^5.16.0",
     "nodemon": "^1.18.10",

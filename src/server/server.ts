@@ -1,11 +1,14 @@
 import express from 'express';
-import axios from 'axios';
-import { logger } from "../utils";
-import { SparkServer, SparkJob, ConnectionStick, ServerState, ServerConfig } from "../models";
-import * as routes from './routes';
+import got from 'got';
 import delay from 'delay';
+import { EventEmitter } from 'events';
+import { performance } from 'perf_hooks';
+import * as routes from './routes';
+import { SparkServer, SparkJob, ConnectionStick, ServerState, ServerConfig } from "../models";
+import { logger } from "../utils";
 
-class Server implements SparkServer {
+
+class Server extends EventEmitter implements SparkServer {
     hostName: string;
     tags: string[];
     state: ServerState;
@@ -15,11 +18,13 @@ class Server implements SparkServer {
         max: number;
         min: number;
     };
+    locked: boolean;
     leader?: SparkServer;
     port?: number;
     httpServer: express.Application;
 
     constructor(options: ServerConfig) {
+        super();
         this.hostName = options.hostName || 'SparkServer';
         this.tags = options.tags || [];
         this.state = ServerState.Follower;
@@ -34,18 +39,16 @@ class Server implements SparkServer {
             }
             return server;
         });
-        this.connections = {};
+        this.locked = false;
         this.health = {
             max: options.healthCheck.maxHealthTime,
             min: options.healthCheck.minHealthTime
         };
         this.leader = undefined;
-
         this.httpServer = express();
-    }
 
-    init = async () => {
-        console.log(this.port);
+        this.on('locked', this.lock);
+        this.on('unlocked', this.unlock);
         
         logger.info(`Initializing Spark Server on port ${this.port}`);
 
@@ -53,78 +56,57 @@ class Server implements SparkServer {
         this.httpServer.use(express.json());
 
         this.httpServer.get('/_healthz', routes.health);
-        this.httpServer.get('/initialConnect', routes.initialConnect);
+        this.httpServer.post('/initialConnect', routes.initialConnect);
         this.httpServer.post('/getVote', routes.getVote);
         this.httpServer.post('/getUpdate', routes.getUpdate);
-        
 
-        logger.info(`Spark server started`);
+        this.setMaxListeners(1);
+    }
 
+    init = async () => {
         logger.info('Establishing connection to siblings...');
+        this.connectSiblings();
+        this.emit('locked');
+        await delay(this.health.min);
+        this.emit('unlocked');
+    }
 
-        await this.connectSiblings();
+    lock = () => {
+        this.locked = true;
+    }
+
+    unlock = () => {
+        this.locked = false;
+    }
+
+    getLock = async () => {
+        if (this.locked) await new Promise(resolve => this.once('unlocked', resolve));
+        this.emit('locked');
+    }
+
+    releaseLock = async () => {
+        this.emit('unlocked');
     }
 
     connectSiblings = async () => {
 
         await Promise.all(this.siblings.map(async sibling => {
+            logger.info(`Attempting to connect to ${sibling.hostName}`);
 
-            const res = await this.establish(sibling);
+            try {
+                const res = await got.post(`${sibling.hostName}/initialConnect`, {
+                    json: true,
+                    body: {
+                        "host": `${this.hostName}:${this.port}`
+                    },
+                    timeout: this.health.max
+                });
 
-            if(res) {
-                logger.info(`Connected to ${sibling.hostName}`);
-
-                if (res.data.server.leader) {
-                    logger.info(`Leader found at ${res.data.server.leader.hostName}`);
-                    this.leader = (res.data.server.state == ServerState.Leader) ? res.data.server : res.data.server.leader;
-                    this.state = ServerState.Follower
-                }
-            } else {
-                logger.error(`Unable to connect to ${sibling.hostName}`);
+            } catch (e) {
+                logger.error(`Error initializing connection to ${sibling.hostName}`);
             }
         }));
-
     }
-
-    establish = async (sibling: SparkServer) => {
-        logger.silly(`Establishing connection to sibling at ${sibling.hostName}`);
-
-        await delay(this.health.min);
-
-        let res;
-
-        try {
-            res = await axios.get(`${sibling.hostName}/initialConnect`, { timeout: this.health.max })
-        } catch (e) {
-            logger.error(`${sibling.hostName}/initialConnect timed out after ${this.health.max}ms `, e);
-            res = undefined;
-        }
-
-        return res;
-    }
-
-    heartbeat = async (sibling: SparkServer) => {
-
-        logger.silly(`Pinging sibling located at ${sibling.hostName}`);
-
-        await delay(this.health.min);
-
-        let passed;
-
-        try {
-            passed = new Boolean(await axios.get(
-                `${sibling.hostName}/_healthz`,
-                { timeout: this.health.max }
-            ));
-        } catch (e) {
-            logger.error(`${sibling.hostName} timed out after ${this.health.max}ms`);
-            passed = false;
-        }
-
-        return passed;
-    }
-
-
 }
 
 export default Server;
