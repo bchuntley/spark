@@ -1,5 +1,3 @@
-import { ConnectionStick } from "models";
-
 export enum ServerState {
     Follower,
     Candidate,
@@ -11,7 +9,6 @@ interface SparkServer {
     tags: string[];
     state: ServerState;
     siblings: SparkServer[];
-    connections: ConnectionStick;
     leader?: Partial<SparkServer>;
     health?: {
         min: number,

@@ -3,7 +3,7 @@ import got from 'got';
 import delay from 'delay';
 import { EventEmitter } from 'events';
 import * as routes from './routes';
-import { SparkServer, SparkJob, ConnectionStick, ServerState, ServerConfig } from "../models";
+import { SparkServer, SparkJob, ServerState, ServerConfig } from "../models";
 import { logger } from "../utils";
 import lock from 'async-lock';
 
@@ -13,7 +13,6 @@ class Server extends EventEmitter implements SparkServer {
     tags: string[];
     state: ServerState;
     siblings: SparkServer[];
-    connections: ConnectionStick;
     health: {
         max: number;
         min: number;
@@ -35,7 +34,6 @@ class Server extends EventEmitter implements SparkServer {
                 tags: [],
                 siblings: [],
                 state: ServerState.Follower,
-                connections: {}
             }
             return server;
         });
