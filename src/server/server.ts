@@ -6,6 +6,7 @@ import * as routes from './routes';
 import { SparkServer, SparkJob, ServerState, ServerConfig } from "../models";
 import { logger } from "../utils";
 import lock from 'async-lock';
+import spark from '../spark';
 
 const HEARTBEAT = 3000;
 class Server extends EventEmitter implements SparkServer {
@@ -83,10 +84,6 @@ class Server extends EventEmitter implements SparkServer {
                 logger.error(`Error initializing connection to ${sibling.hostName}`, e);
             }
         }));
-
-        // await this.lock.acquire('lock', async () => {
-        //     await this.removeLeader();
-        // });
     }
 
     requestVotes = async () => {
@@ -132,11 +129,17 @@ class Server extends EventEmitter implements SparkServer {
         await Promise.all(this.siblings.map(async sibling => {
             logger.info(`Distributing update to ${sibling.hostName}`);
             try {
+                const payload = JSON.stringify(
+                    {
+                        logs: spark.logMaster.uncommitedLogs
+                    }
+                )
 
                 await got.post(`${sibling.hostName}/getUpdate`, {
-                    timeout: this.health.max
+                    timeout: this.health.max,
+                    body: payload
                 });
-                
+                spark.logMaster.reconcileLogs();
                 logger.info(`Update successfully distributed`);
             } catch (e) {
                 logger.error(`Host ${sibling.hostName} unreachable `, e);

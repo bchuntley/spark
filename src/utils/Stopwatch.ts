@@ -23,7 +23,6 @@ class Stopwatch {
     }
 
     start = async () => {
-        logger.info('Stopwatch started!');
         this.state = StopwatchState.RUNNING;
 
         try {
@@ -33,20 +32,17 @@ class Stopwatch {
                 await this.cb();
                 resolve();
             });
-            logger.info('completed');
             this.state = StopwatchState.COMPLETE;
         } catch (e) { }
     }
 
     stop = async () => {
-        logger.info('Stopwatch stopped!');
         this.state = StopwatchState.STOPPED;
-        this.abort.signal;
+        await this.abort.abort();
     }
 
     reset = () => {
         this.stop();
-        logger.info('restarting...');
         this.abort = new AbortController();
         this.start();
     }

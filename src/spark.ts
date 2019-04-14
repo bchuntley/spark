@@ -1,5 +1,5 @@
 import { logger } from './utils';
-import Server from './server';
+import {Server, LogMaster, LogEvent} from './server';
 import { ServerConfig, ServerState } from './models';
 import delay from 'delay';
 import { Stopwatch } from './utils'
@@ -8,8 +8,10 @@ class Spark {
     sparkServer!: Server;
     clearSignal: AbortController;
     leaderStopwatch: Stopwatch;
+    logMaster: LogMaster;
 
     constructor() {
+        this.logMaster = new LogMaster();
     }
 
 
@@ -41,7 +43,9 @@ class Spark {
             const elected = await this.sparkServer.requestVotes();
 
             await this.sparkServer.lock.acquire('lock', async () => {
+                
                 if (elected) {
+                    this.logMaster.addLog(LogEvent.Elect, `${this.sparkServer.hostName}:${this.sparkServer.port} elected`);
                     this.sparkServer.state = ServerState.Leader;
                     this.sparkServer.leader = {
                         hostName: this.sparkServer.hostName
@@ -49,6 +53,7 @@ class Spark {
                     logger.info('Elected! Distrubitng updates!');
                     this.sparkServer.distributeUpdates();
                 } else {
+                    this.logMaster.addLog(LogEvent.Elect, `${this.sparkServer.leader!.hostName} elected`);
                     this.sparkServer.state = ServerState.Follower;
                     this.leaderStopwatch.start();
                 }
@@ -70,6 +75,7 @@ class Spark {
         await this.leaderStopwatch.stop();
         await this.startElection();
     }
+    
 }
 
 
