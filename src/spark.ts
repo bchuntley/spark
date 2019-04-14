@@ -2,20 +2,21 @@ import { logger } from './utils';
 import Server from './server';
 import { ServerConfig, ServerState } from './models';
 import delay from 'delay';
-import AbortController from 'abort-controller';
+import { Stopwatch } from './utils'
 
 class Spark {
     sparkServer!: Server;
     clearSignal: AbortController;
+    leaderStopwatch: Stopwatch;
 
     constructor() {
-        this.clearSignal = new AbortController();
     }
 
 
     init = async (serverConfig: ServerConfig) => {
         logger.info(`Initializing spark server`);
         this.sparkServer = new Server(serverConfig);
+        this.leaderStopwatch = new Stopwatch(this.sparkServer.health.max, this.resetLeader);
         await this.sparkServer.init();
         this.startElection();
 
@@ -48,30 +49,26 @@ class Spark {
                     logger.info('Elected! Distrubitng updates!');
                     this.sparkServer.distributeUpdates();
                 } else {
-                    this.sparkServer.state = ServerState.Follower
-                    await delay(this.sparkServer.health.max);
-                    this.startElection();
+                    this.sparkServer.state = ServerState.Follower;
+                    this.leaderStopwatch.start();
                 }
             });
         }
     }
 
-    setLeaderTimeout = async () => {
-        try {
-            await delay(this.sparkServer.health.max, {signal: this.clearSignal.signal});
-            logger.info(`Connection to leader at ${this.sparkServer.leader!.hostName} lost... Reelecting`);
-            this.sparkServer.connectSiblings();
-        } catch (e) {  } // Do nothing with this error, its intentional when we abort the promise.
+    clearLeaderTimeout = async () => {
+        await this.sparkServer.lock.acquire('lock', async () => {
+            logger.info(`${this.sparkServer.hostName} connection to leader at ${this.sparkServer.leader!.hostName} reestablished`);
+            this.leaderStopwatch.reset();
+        });
     }
 
-    clearLeaderTimeout = async () => {
-        this.sparkServer.lock.acquire('lock', async () => {
-            logger.info(`${this.sparkServer.hostName} connection to leader at ${this.sparkServer.leader!.hostName} reestablished`);
-            this.clearSignal.abort();
-            this.setLeaderTimeout();
+    resetLeader = async () => {
+        await this.sparkServer.lock.acquire('lock', async () => {
+            await this.sparkServer.removeLeader();
         });
-
-        
+        await this.leaderStopwatch.stop();
+        await this.startElection();
     }
 }
 
