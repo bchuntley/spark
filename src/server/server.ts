@@ -68,7 +68,7 @@ class Server extends EventEmitter implements SparkServer {
         
     }
     connectSiblings = async () => {
-        await Promise.all(this.siblings.map(async sibling => {
+        await Promise.all(this.siblings.map(async (sibling, index) => {
             logger.info(`Attempting to connect to ${sibling.hostName}`);
 
             try {
@@ -80,6 +80,9 @@ class Server extends EventEmitter implements SparkServer {
                     timeout: this.health.max
                 });
 
+                logger.info(`Sibling definition received ${JSON.stringify(res.body.server)}`);
+            
+                this.siblings[index] = {...res.body.server, ...this.siblings[index]};   
             } catch (e) {
                 logger.error(`Error initializing connection to ${sibling.hostName}`, e);
             }
@@ -127,20 +130,19 @@ class Server extends EventEmitter implements SparkServer {
 
     distributeUpdates = async () => {
         await Promise.all(this.siblings.map(async sibling => {
-            logger.info(`Distributing update to ${sibling.hostName}`);
+            logger.info(`Sending heartbeat ping to ${sibling.hostName}`);
             try {
                 const payload = JSON.stringify(
                     {
                         logs: spark.logMaster.uncommitedLogs
                     }
                 )
-
                 await got.post(`${sibling.hostName}/getUpdate`, {
                     timeout: this.health.max,
                     body: payload
                 });
                 spark.logMaster.reconcileLogs();
-                logger.info(`Update successfully distributed`);
+                logger.info(`Received response from ${sibling.hostName}`);
             } catch (e) {
                 logger.error(`Host ${sibling.hostName} unreachable `, e);
             }   

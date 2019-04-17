@@ -63,7 +63,9 @@ class Spark {
 
     clearLeaderTimeout = async () => {
         await this.sparkServer.lock.acquire('lock', async () => {
-            logger.info(`${this.sparkServer.hostName} connection to leader at ${this.sparkServer.leader!.hostName} reestablished`);
+            if (this.sparkServer.leader) {
+                logger.info(`Heartbeat from ${this.sparkServer.leader.hostName}`);
+            }
             this.leaderStopwatch.reset();
         });
     }
