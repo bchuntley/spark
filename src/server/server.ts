@@ -68,7 +68,7 @@ class Server extends EventEmitter implements SparkServer {
         
     }
     connectSiblings = async () => {
-        await Promise.all(this.siblings.map(async sibling => {
+        await Promise.all(this.siblings.map(async (sibling, index) => {
             logger.info(`Attempting to connect to ${sibling.hostName}`);
 
             try {
@@ -80,6 +80,9 @@ class Server extends EventEmitter implements SparkServer {
                     timeout: this.health.max
                 });
 
+                logger.info(`Sibling definition received ${JSON.stringify(res.body.server)}`);
+            
+                this.siblings[index] = {...res.body.server, ...this.siblings[index]};   
             } catch (e) {
                 logger.error(`Error initializing connection to ${sibling.hostName}`, e);
             }
@@ -137,7 +140,6 @@ class Server extends EventEmitter implements SparkServer {
                     timeout: this.health.max,
                     json: true
                 });
-
                 possibleUpdates++;
 
                 if (res.body.updated) {

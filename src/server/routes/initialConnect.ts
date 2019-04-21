@@ -14,13 +14,14 @@ const initialConnect = async (req: express.Request, res: express.Response) => {
             logger.info(`New host at ${req.body.host} added. Triggering reelection`);
 
         } else {
-            const { hostName, leader, state } = spark.sparkServer;
+            const { hostName, leader, state, tags } = spark.sparkServer;
 
             res.send({
                 server: {
                     hostName,
                     leader,
-                    state
+                    state,
+                    tags
                 }
             }).status(200);
             logger.info(`Successfully responded ${req.body.host}`);
