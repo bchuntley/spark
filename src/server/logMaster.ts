@@ -64,6 +64,8 @@ class LogMaster {
         } catch (e) {
             logger.error('Collision in log indexes', e);
         }
+
+        console.log(JSON.stringify(this.logs));
     }
 
     verifyLogs() {

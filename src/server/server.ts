@@ -8,7 +8,7 @@ import { logger } from "../utils";
 import lock from 'async-lock';
 import spark from '../spark';
 
-const HEARTBEAT = 3000;
+
 class Server extends EventEmitter implements SparkServer {
     hostName: string;
     tags: string[];
@@ -126,29 +126,33 @@ class Server extends EventEmitter implements SparkServer {
     }
 
     distributeUpdates = async () => {
+        let possibleUpdates = 0;
+        let updatesReceived = 0;
         await Promise.all(this.siblings.map(async sibling => {
-            logger.info(`Distributing update to ${sibling.hostName}`);
             try {
-                const payload = JSON.stringify(
-                    {
+                const res = await got.post(`${sibling.hostName}/getUpdate`, {
+                    body: {
                         logs: spark.logMaster.uncommitedLogs
-                    }
-                )
-
-                await got.post(`${sibling.hostName}/getUpdate`, {
+                    },
                     timeout: this.health.max,
-                    body: payload
+                    json: true
                 });
-                spark.logMaster.reconcileLogs();
-                logger.info(`Update successfully distributed`);
+
+                possibleUpdates++;
+
+                if (res.body.updated) {
+                    updatesReceived++;
+                }
             } catch (e) {
-                logger.error(`Host ${sibling.hostName} unreachable `, e);
-            }   
+                logger.error(`${sibling.hostName} unreachable for updates.`, e);
+
+            }
+            if(updatesReceived > (possibleUpdates/2)) {
+                spark.logMaster.reconcileLogs();
+            } else {
+                throw new Error('Logs unreconciable with majority of hosts');
+            }
         }));
-
-        await delay(HEARTBEAT);
-
-        this.distributeUpdates();
     }
 }
 

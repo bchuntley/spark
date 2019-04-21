@@ -5,11 +5,22 @@ import { LogEvent } from '../';
 
 const getUpdate = async (req: express.Request, res: express.Response) => {
     const logs = req.body.logs;
-    spark.logMaster.updateLogs(logs);
-    spark.logMaster.addLog(LogEvent.ReceiveUpdate, `Update received from ${spark.sparkServer.leader}`);
-    await spark.clearLeaderTimeout();
-    logger.info('Updated!');
-    res.sendStatus(200);
+    try {
+        spark.logMaster.updateLogs(logs);
+        spark.logMaster.addLog(LogEvent.ReceiveUpdate, `Update received from ${spark.sparkServer.leader}`);
+        await spark.clearLeaderTimeout();
+        logger.info('Updated!');
+        res.send({
+            updated: true
+        });
+    } catch (e) {
+        res.send({
+            updated: false
+        });
+    }
+    
+    
+    
 }
 
 export default getUpdate;

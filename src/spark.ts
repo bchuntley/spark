@@ -4,11 +4,14 @@ import { ServerConfig, ServerState } from './models';
 import delay from 'delay';
 import { Stopwatch } from './utils'
 
+const HEARTBEAT = 3000;
+
 class Spark {
     sparkServer!: Server;
     clearSignal: AbortController;
     leaderStopwatch: Stopwatch;
     logMaster: LogMaster;
+    updateInterval?: NodeJS.Timeout;
 
     constructor() {
         this.logMaster = new LogMaster();
@@ -51,7 +54,7 @@ class Spark {
                         hostName: this.sparkServer.hostName
                     }
                     logger.info('Elected! Distrubitng updates!');
-                    this.sparkServer.distributeUpdates();
+                    this.startUpdates();
                 } else {
                     this.logMaster.addLog(LogEvent.Elect, `${this.sparkServer.leader!.hostName} elected`);
                     this.sparkServer.state = ServerState.Follower;
@@ -72,8 +75,25 @@ class Spark {
         await this.sparkServer.lock.acquire('lock', async () => {
             await this.sparkServer.removeLeader();
         });
+
+        if (this.updateInterval) {
+            clearInterval(this.updateInterval);
+        }
+
         await this.leaderStopwatch.stop();
         await this.startElection();
+    }
+
+    startUpdates = async () => {
+        this.updateInterval = setInterval(async () => {
+            try {
+                await this.sparkServer.distributeUpdates();
+            } catch (e) {
+                logger.error(e);
+                
+            }
+            
+        }, HEARTBEAT)
     }
     
 }
