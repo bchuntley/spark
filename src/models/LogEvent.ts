@@ -5,7 +5,8 @@ enum LogEvent {
     RunJob,
     ReceiveJob,
     JobStarted,
-    JobKilled
+    JobKilled,
+    ImagePulled
 }
 
 export default LogEvent;
