@@ -1,7 +1,7 @@
 import fs from "fs";
 import { logger } from "../utils";
 
-const parseJSON = async (path: string) => {
+const parseJSON = (path: string) => {
 
     const file = fs.readFileSync(path).toString();
 
@@ -11,8 +11,6 @@ const parseJSON = async (path: string) => {
 
     try {
         json = JSON.parse(file);
-
-        logger.silly(`Parsed JSON from file`);
     } catch (e) {
         logger.error(`An error occured while parsing ${path}`, e);
     }

@@ -14,7 +14,6 @@ class Spark {
     leaderStopwatch: Stopwatch;
     logMaster: LogMaster;
     updateInterval?: NodeJS.Timeout;
-    clientMode: boolean;
 
     constructor() {
         this.logMaster = new LogMaster();
@@ -99,12 +98,20 @@ class Spark {
             
         }, HEARTBEAT)
     }
+
+    get client() {
+        const config = this.config;
+        return (config.type === 'client')
+    }
+
+    get config() {
+        const config = parseJSON(`${os.homedir}/.spark/config.json`); 
+        return config;
+    }
     
     initJob = async (job: SparkJob) => {
-        const config = await parseJSON(`${os.homedir}/.spark/config.json`);
-
-        if (config.type === 'client') {
-            await got.post(`${config.servers[0]}/deployJob`, {
+        if (this.client) {
+            await got.post(`${this.config.servers[0]}/deployJob`, {
                 json: true,
                 body: job
             });
