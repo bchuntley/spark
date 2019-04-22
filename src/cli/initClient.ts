@@ -6,13 +6,13 @@ import CONFIG_PATH from '../configPath';
 
 const initClient = async (file: string) => {
     
-    logger.info(`Saving to ${CONFIG_PATH}`);
+    logger.info(`Initializing Spark client config`)
     const clientConfig = await parseJSON(file)
 
     clientConfig.type = 'client';
+    await fs.writeFileSync(CONFIG_PATH, JSON.stringify(clientConfig, undefined, 2));
 
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(clientConfig, undefined, 2));
-
+    logger.info(`Config written to ${CONFIG_PATH}`);
 }
 
 export default initClient;

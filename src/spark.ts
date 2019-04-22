@@ -1,10 +1,14 @@
 import { logger, parseJSON } from './utils';
-import {Server, LogMaster, LogEvent} from './server';
-import { ServerConfig, ServerState, SparkJob } from './models';
+import {Server, LogMaster} from './server';
+import { ServerConfig, ServerState, SparkJob, LogEvent } from './models';
 import { Stopwatch } from './utils'
 import delay from 'delay';
 import got from 'got';
 import * as os from 'os';
+import Table from 'cli-table';
+import colors from 'colors';
+import { SparkClient } from './client';
+import CONFIG_PATH from './configPath';
 
 const HEARTBEAT = 3000;
 
@@ -105,20 +109,57 @@ class Spark {
     }
 
     get config() {
-        const config = parseJSON(`${os.homedir}/.spark/config.json`); 
+        const config = parseJSON(CONFIG_PATH); 
         return config;
     }
     
-    initJob = async (job: SparkJob) => {
+    initJob = async (path: string) => {
+        const job = parseJSON(path);
+
+        console.log(job);
+
         if (this.client) {
-            await got.post(`${this.config.servers[0]}/deployJob`, {
+            await got.post(`${this.config.servers[0]}/initJob`, {
                 json: true,
-                body: job
+                body: {
+                    job
+                }
             });
         } else {
             this.sparkServer.startJob(job);
         }
     }
+
+    status = async () => {
+
+        if (this.client) {
+            await SparkClient.status();
+        } else {
+            
+            const hostAddress = `http://${this.sparkServer.hostName}:${this.sparkServer.port}`;
+
+            const table = new Table({
+                head: [colors.cyan('Address'), colors.cyan('State'), colors.cyan('Status'), colors.cyan('Last Updated')],
+                colWidths: [35, 10, 15, 25]
+            });
+
+            await Promise.all([hostAddress, ...this.sparkServer.siblings].map(async server => {
+                try {
+                    const res = await got.get(`${server}/_healthz`, { json: true, timeout: 5000 })
+                    let { address, state, lastUpdated } = (res as got.Response<any>).body;
+                    table.push([address, ServerState[state], colors.green('Healthy'), lastUpdated]);
+                } catch (e) {
+                    table.push([server, colors.red('Dead'), colors.red('Unhealthy'), colors.red('Unknown')]);
+                }
+
+                logger.info(`\n${table.toString()}`);
+            }));
+
+        }
+    }
+
+    
+
 }
 
 

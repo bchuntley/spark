@@ -1,16 +1,7 @@
 import moment from 'moment';
 import uuid from 'uuid';
 import { logger } from '../utils';
-
-export enum LogEvent {
-    Update,
-    Elect,
-    ReceiveUpdate,
-    RunJob,
-    ReceiveJob,
-    JobStarted,
-    JobKilled
-}
+import { LogEvent } from '../models';
 
 interface Log { 
     logId: string;

@@ -1,0 +1,11 @@
+{
+    "name": "hello-world",
+    "image": "crccheck/hello-world",
+    "tags": ["example"],
+    "desiredHosts": 2,
+    "port": 8000,
+    "exposedPort": "auto",
+    "env": {
+        "hello": "world"
+    }
+}

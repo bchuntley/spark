@@ -1,8 +1,11 @@
 interface SparkJob {
     name: string;
-    dockerImage: string;
+    image: string;
     tags: string[];
     desiredHosts: number;
+    port: number;
+    protocol: "http" | "https";
+    exposedPort: 'auto' | number;
     env: {
         [key: string]: string
     }

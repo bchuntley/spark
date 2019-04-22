@@ -2,7 +2,7 @@ import got from 'got';
 import Table from 'cli-table';
 import { logger, parseJSON } from '../utils';
 import configPath from '../configPath';
-import { Client, ServerState } from '../models';
+import { Client, ServerState, SparkJob } from '../models';
 import colors from 'colors';
 
 class SparkClient {
@@ -32,11 +32,25 @@ class SparkClient {
             } catch (e) {
                 table.push([server, colors.red('Dead'), colors.red('Unhealthy'), colors.red('Unknown')]);
             }
-
-            
-        })); 
+        }));
 
         logger.info(`\n${table.toString()}`);
+    }
+
+    static initJob = async (job: SparkJob) => {
+        
+        const { servers } = SparkClient.config();
+
+        try {
+            logger.info(`Deploying job`)
+
+            await got.post(`${servers[0]}/initJob`, {
+                json: true,
+                body: job
+            });
+        } catch (e) {
+            logger.error(`An error occured during job deployment`, e);
+        }
     }
 }
 

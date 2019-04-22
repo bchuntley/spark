@@ -6,7 +6,7 @@
         "http://127.0.0.1:5432",
         "http://127.0.0.1:6543"
     ],
-    "tags": [],
+    "tags": ["example"],
     "healthCheck": {
         "maxHealthTime": 10000,
         "minHealthTime": 5000

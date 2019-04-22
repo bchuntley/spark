@@ -1,3 +1,4 @@
-import { SparkClient } from '../client';
+import spark from '../spark';
 
-SparkClient.status();
+spark.status();
+

@@ -3,10 +3,11 @@ import got from 'got';
 import delay from 'delay';
 import { EventEmitter } from 'events';
 import * as routes from './routes';
-import { SparkServer, SparkJob, ServerState, ServerConfig } from "../models";
+import { SparkServer, SparkJob, ServerState, ServerConfig, LogEvent } from "../models";
 import { logger } from "../utils";
 import lock from 'async-lock';
 import spark from '../spark';
+import JobRunner from '../job/jobRunner';
 
 
 class Server extends EventEmitter implements SparkServer {
@@ -55,6 +56,7 @@ class Server extends EventEmitter implements SparkServer {
         this.httpServer.post('/initialConnect', routes.initialConnect);
         this.httpServer.post('/getVote', routes.getVote);
         this.httpServer.post('/getUpdate', routes.getUpdate);
+        this.httpServer.post('/initJob', routes.initJob);
     }
 
     init = async () => {
@@ -160,20 +162,27 @@ class Server extends EventEmitter implements SparkServer {
 
     startJob = async (job: SparkJob) => {
         if (this.state !== ServerState.Leader) {
-
             try {
-                await got.post(`${this.leader!.hostName}/deployJob`, {
+                console.log(this.leader!.hostName + "/initJob");
+
+                await got.post(`http://${this.leader!.hostName}/initJob`, {
                     json: true,
-                    body: job,
+                    body: {
+                        job
+                    },
                     timeout: this.health.min
                 });
             } catch (e) {
-                logger.error(`Error failed while deploying job`, e);
+                logger.error(`Error while deploying job`, e);
             }
         } else {
-            //CODE GOES HERE
+            spark.logMaster.addLog(LogEvent.ReceiveJob, `Job received for ${job.name}`);
+            const jobRunner = new JobRunner(job);
+
+            await jobRunner.kickOff();
         }
     }
+
 }
 
 export default Server;
