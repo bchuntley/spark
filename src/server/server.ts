@@ -156,6 +156,23 @@ class Server extends EventEmitter implements SparkServer {
             }
         }));
     }
+
+    startJob = async (job: SparkJob) => {
+        if (this.state !== ServerState.Leader) {
+
+            try {
+                await got.post(`${this.leader!.hostName}/deployJob`, {
+                    json: true,
+                    body: job,
+                    timeout: this.health.min
+                });
+            } catch (e) {
+                logger.error(`Error failed while deploying job`, e);
+            }
+        } else {
+            //CODE GOES HERE
+        }
+    }
 }
 
 export default Server;

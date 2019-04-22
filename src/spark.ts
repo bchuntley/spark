@@ -1,8 +1,10 @@
-import { logger } from './utils';
+import { logger, parseJSON } from './utils';
 import {Server, LogMaster, LogEvent} from './server';
-import { ServerConfig, ServerState } from './models';
-import delay from 'delay';
+import { ServerConfig, ServerState, SparkJob } from './models';
 import { Stopwatch } from './utils'
+import delay from 'delay';
+import got from 'got';
+import * as os from 'os';
 
 const HEARTBEAT = 3000;
 
@@ -12,6 +14,7 @@ class Spark {
     leaderStopwatch: Stopwatch;
     logMaster: LogMaster;
     updateInterval?: NodeJS.Timeout;
+    clientMode: boolean;
 
     constructor() {
         this.logMaster = new LogMaster();
@@ -19,7 +22,6 @@ class Spark {
 
 
     init = async (serverConfig: ServerConfig) => {
-        logger.info(`Initializing spark server`);
         this.sparkServer = new Server(serverConfig);
         this.leaderStopwatch = new Stopwatch(this.sparkServer.health.max, this.resetLeader);
         await this.sparkServer.init();
@@ -98,6 +100,18 @@ class Spark {
         }, HEARTBEAT)
     }
     
+    initJob = async (job: SparkJob) => {
+        const config = await parseJSON(`${os.homedir}/.spark/config.json`);
+
+        if (config.type === 'client') {
+            await got.post(`${config.servers[0]}/deployJob`, {
+                json: true,
+                body: job
+            });
+        } else {
+            this.sparkServer.startJob(job);
+        }
+    }
 }
 
 

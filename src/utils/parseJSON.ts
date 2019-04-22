@@ -12,7 +12,7 @@ const parseJSON = async (path: string) => {
     try {
         json = JSON.parse(file);
 
-        logger.info(`Parsed JSON from file`);
+        logger.silly(`Parsed JSON from file`);
     } catch (e) {
         logger.error(`An error occured while parsing ${path}`, e);
     }
