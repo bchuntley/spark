@@ -30,7 +30,7 @@ class SparkClient {
                 table.push([address, ServerState[state], colors.green('Healthy'), lastUpdated]);
 
             } catch (e) {
-                table.push([server, colors.red('Unknown'), colors.red('Unhealthy'), colors.red('Unknown')]);
+                table.push([server, colors.red('Dead'), colors.red('Unhealthy'), colors.red('Unknown')]);
             }
 
             
