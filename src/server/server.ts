@@ -144,6 +144,7 @@ class Server extends EventEmitter implements SparkServer {
 
                 if (res.body.updated) {
                     updatesReceived++;
+                    logger.info(`${sibling.hostName} successfully pinged`);
                 }
             } catch (e) {
                 logger.error(`${sibling.hostName} unreachable for updates.`, e);
