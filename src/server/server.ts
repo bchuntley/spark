@@ -33,8 +33,8 @@ class Server extends EventEmitter implements SparkServer {
         this.siblings = options.siblings.map(siblingHost => {
             const server: SparkServer = {
                 hostName: siblingHost,
-                tags: [],
                 siblings: [],
+                tags: [],
                 state: ServerState.Follower,
             }
             return server;
@@ -57,6 +57,7 @@ class Server extends EventEmitter implements SparkServer {
         this.httpServer.post('/getVote', routes.getVote);
         this.httpServer.post('/getUpdate', routes.getUpdate);
         this.httpServer.post('/initJob', routes.initJob);
+        this.httpServer.post('/runJob', routes.runJob);
     }
 
     init = async () => {
@@ -84,7 +85,8 @@ class Server extends EventEmitter implements SparkServer {
 
                 logger.info(`Sibling definition received ${JSON.stringify(res.body.server)}`);
             
-                this.siblings[index] = {...res.body.server, ...this.siblings[index]};   
+                this.siblings[index].tags = res.body.server.tags;
+                this.siblings[index].siblings = res.body.server.siblings;
             } catch (e) {
                 logger.error(`Error initializing connection to ${sibling.hostName}`, e);
             }
