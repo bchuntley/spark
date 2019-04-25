@@ -4,7 +4,7 @@ import { ServerConfig, ServerState, SparkJob, LogEvent } from './models';
 import { Stopwatch } from './utils'
 import delay from 'delay';
 import got from 'got';
-import * as os from 'os';
+import { JobLedger, JobRunner } from './job';
 import Table from 'cli-table';
 import colors from 'colors';
 import { SparkClient } from './client';
@@ -17,10 +17,14 @@ class Spark {
     clearSignal: AbortController;
     leaderStopwatch: Stopwatch;
     logMaster: LogMaster;
+    jobLedger: JobLedger;
     updateInterval?: NodeJS.Timeout;
+    updates: any[];
 
     constructor() {
         this.logMaster = new LogMaster();
+        this.jobLedger = new JobLedger();
+        this.updates = [];
     }
 
 
@@ -74,6 +78,10 @@ class Spark {
             if (this.sparkServer.leader) {
                 logger.info(`Heartbeat from ${this.sparkServer.leader.hostName}`);
             }
+            await Promise.all(this.updates.map(async update => {
+                await update();
+            }));
+            this.updates = [];
             this.leaderStopwatch.reset();
         });
     }
@@ -95,9 +103,12 @@ class Spark {
         this.updateInterval = setInterval(async () => {
             try {
                 await this.sparkServer.distributeUpdates();
+                await Promise.all(this.updates.map(async update => {
+                    await update();
+                }));
+                this.updates = [];
             } catch (e) {
                 logger.error(e);
-                
             }
             
         }, HEARTBEAT)
@@ -114,9 +125,7 @@ class Spark {
     }
     
     initJob = async (path: string) => {
-        const job = parseJSON(path);
-
-        console.log(job);
+        const job: SparkJob = parseJSON(path);
 
         if (this.client) {
             await got.post(`${this.config.servers[0]}/initJob`, {
@@ -125,9 +134,26 @@ class Spark {
                     job
                 }
             });
+
         } else {
             this.sparkServer.startJob(job);
         }
+    }
+
+    queueJob = async (job: SparkJob) => {
+
+        this.updates.push(async () => {
+            const jobRunner = new JobRunner(job);
+
+            await jobRunner.kickOff();
+        });
+    }
+
+    queueRun = async (job: SparkJob) => {
+        this.updates.push(async () => {
+            const runner = new JobRunner(job);
+            await runner.runJob();
+        });
     }
 
     status = async () => {
@@ -154,12 +180,13 @@ class Spark {
 
                 logger.info(`\n${table.toString()}`);
             }));
-
         }
     }
 
-    
+    jobs = async () => {
+        const jobs = await this.jobLedger.latestJobs();
 
+    }
 }
 
 

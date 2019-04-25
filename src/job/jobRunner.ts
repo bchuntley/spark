@@ -44,15 +44,19 @@ class JobRunner {
     }
 
     pushToHosts = async () => {
+        const { id } = await spark.jobLedger.createJob(this.job.name, this.availableHosts.map(host => host.hostName));
+
         await Promise.all(this.availableHosts.map(async host => {
             try {
 
                 const { name, image, tags, desiredHosts, port, exposedPort, env} = this.job;
 
+
                 const res = await got.post(`${host.hostName}/runJob`, {
                     json: true,
                     body: {
                         job: {
+                            id,
                             name,
                             image,
                             tags,
@@ -67,10 +71,14 @@ class JobRunner {
 
                 logger.info(`Job ${name} was successful to host ${host.hostName}`);
 
+                spark.logMaster.addLog(LogEvent.RunJob, `${name}-${id} deployed to host ${host.hostName}`);
+
             } catch (e) {
                 logger.error('An error occured while deploying the job ', e);
             }
         }));
+
+        logger.info(`${this.job.name} deployed to all hosts`);
     }
 
     buildJob = async () => {
@@ -78,7 +86,7 @@ class JobRunner {
 
         logger.info(`Exposing port ${exposedPort}`);
 
-        const { image, name, port, env } = this.job;
+        const { image, name, port, env, id } = this.job;
 
         const envConverted = Object.keys(env).map(envKey =>
             `${envKey}=${env[envKey]}`
@@ -98,7 +106,7 @@ class JobRunner {
             Image: image,
             ExposedPorts: exposed,
             Env: envConverted,
-            name,
+            name: `${name}-${id}`,
             HostConfig: {
                 PortBindings: bindings
             }
@@ -134,10 +142,13 @@ class JobRunner {
                 if (err) throw err;
                 result!.start((startErr: Error, startRes: any) => {
                     if (startErr) logger.error('An error occured while deploying the job', startErr);
-                    console.log(startRes);
                 })
             });
+            const completing = await spark.jobLedger.getCompleting(this.job.name);
+
             logger.info(`${this.job.name} successfully started on ${spark.sparkServer.hostName}`)
+
+
 
             spark.logMaster.addLog(LogEvent.JobStarted, `${this.job.image} started for job ${this.job.name}`);
         } catch (e) {

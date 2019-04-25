@@ -7,7 +7,7 @@ import { SparkServer, SparkJob, ServerState, ServerConfig, LogEvent } from "../m
 import { logger } from "../utils";
 import lock from 'async-lock';
 import spark from '../spark';
-import JobRunner from '../job/jobRunner';
+import { JobRunner } from '../job/';
 
 
 class Server extends EventEmitter implements SparkServer {
@@ -139,7 +139,8 @@ class Server extends EventEmitter implements SparkServer {
             try {
                 const res = await got.post(`${sibling.hostName}/getUpdate`, {
                     body: {
-                        logs: spark.logMaster.uncommitedLogs
+                        logs: spark.logMaster.uncommitedLogs,
+                        jobs: spark.jobLedger.jobs
                     },
                     timeout: this.health.max,
                     json: true
@@ -165,8 +166,6 @@ class Server extends EventEmitter implements SparkServer {
     startJob = async (job: SparkJob) => {
         if (this.state !== ServerState.Leader) {
             try {
-                console.log(this.leader!.hostName + "/initJob");
-
                 await got.post(`http://${this.leader!.hostName}/initJob`, {
                     json: true,
                     body: {
@@ -179,9 +178,7 @@ class Server extends EventEmitter implements SparkServer {
             }
         } else {
             spark.logMaster.addLog(LogEvent.ReceiveJob, `Job received for ${job.name}`);
-            const jobRunner = new JobRunner(job);
-
-            await jobRunner.kickOff();
+            spark.queueJob(job);
         }
     }
 

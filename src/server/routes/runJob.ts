@@ -1,18 +1,14 @@
 import express from 'express';
-import JobRunner from '../../job/jobRunner';
 import { SparkJob } from '../../models';
 import spark from '../../spark';
 import { logger } from '../../utils';
 
 const runJob = async (req: express.Request, res: express.Response) => {
-
     const { job } = req.body as { job: SparkJob };
 
-    const runner = new JobRunner(job);
-
     try {
-        await runner.runJob();
-
+        spark.queueRun(job)
+        
         res.send({
             successful: true
         }).status(200);

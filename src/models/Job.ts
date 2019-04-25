@@ -1,4 +1,5 @@
 interface SparkJob {
+    id: string;
     name: string;
     image: string;
     tags: string[];

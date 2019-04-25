@@ -14,6 +14,6 @@ const logger = createLogger({
     ]
 });
 
-logger.level == process.env.LOG_LEVEL || 'silly';
+logger.level = 'silly';
 
 export default logger;
