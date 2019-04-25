@@ -1,6 +1,6 @@
 import { logger, parseJSON } from './utils';
 import {Server, LogMaster} from './server';
-import { ServerConfig, ServerState, SparkJob, LogEvent } from './models';
+import { ServerConfig, ServerState, SparkJob, LogEvent, JobLedgerEntry } from './models';
 import { Stopwatch } from './utils'
 import delay from 'delay';
 import got from 'got';
@@ -9,6 +9,7 @@ import Table from 'cli-table';
 import colors from 'colors';
 import { SparkClient } from './client';
 import CONFIG_PATH from './configPath';
+import {performance} from 'perf_hooks';
 
 const HEARTBEAT = 3000;
 
@@ -103,8 +104,8 @@ class Spark {
         this.updateInterval = setInterval(async () => {
             try {
                 await this.sparkServer.distributeUpdates();
-                await Promise.all(this.updates.map(async update => {
-                    await update();
+                await Promise.all(this.updates.map(update => {
+                    update();
                 }));
                 this.updates = [];
             } catch (e) {
@@ -139,6 +140,21 @@ class Spark {
             this.sparkServer.startJob(job);
         }
     }
+
+    queueOld = async(job: SparkJob, ledgerEntry: JobLedgerEntry) => {
+        this.updates.push(async () => {
+            const runner = new JobRunner(job);
+            await runner.stopOldContainers(ledgerEntry);
+        });
+    }
+
+    queueStop = async(job: SparkJob) => {
+        this.updates.push(async () => {
+            const jobRunner = new JobRunner(job);
+
+            await jobRunner.stopJob();
+        })
+    } 
 
     queueJob = async (job: SparkJob) => {
 

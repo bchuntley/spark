@@ -38,11 +38,11 @@ class JobLedger implements IJobLedger {
         let running = await this.lock.acquire('lock', () => {
             const entries = this.jobs[jobName];
 
-            const running = entries.filter(entry => {
-                entry.status === JobState.Running
-            });
-
-            return (running.length === 0) ? undefined : running[0];
+            for (let entry of entries) {
+                if (entry.status === JobState.Running) {
+                    return entry;
+                }
+            }
         });
 
         logger.silly(`${JSON.stringify(running, null, 2)}`);
@@ -54,9 +54,7 @@ class JobLedger implements IJobLedger {
     getCompleting = async (jobName: string) => {
         logger.silly(`get completing`);
         let completing = await this.getRunning(jobName);
-        logger.silly(`${JSON.stringify(completing, null, 2)}`);
-        return (completing === undefined || completing.desired == JobState.Completed ) ? undefined : completing;
-
+        if (completing && completing.desired === JobState.Completed) return completing;
     }
 
     getEntryId (jobName: string, entryId: string) {
@@ -75,7 +73,7 @@ class JobLedger implements IJobLedger {
 
             for (let entry of entries) {
                 if (entry!.status === JobState.Running) {
-                    logger.silly(`stopping entry ${JSON.stringify(entry, null, 2)}`)
+                    logger.silly(`updating entry entry ${JSON.stringify(entry, null, 2)} to desired Completed state`)
                     entry.desired = JobState.Completed;
                     entry.lastUpdated = moment();
                     break;

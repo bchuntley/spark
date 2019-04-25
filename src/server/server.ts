@@ -58,6 +58,7 @@ class Server extends EventEmitter implements SparkServer {
         this.httpServer.post('/getUpdate', routes.getUpdate);
         this.httpServer.post('/initJob', routes.initJob);
         this.httpServer.post('/runJob', routes.runJob);
+        this.httpServer.post('/stopJob', routes.stopJob);
     }
 
     init = async () => {
@@ -158,7 +159,7 @@ class Server extends EventEmitter implements SparkServer {
             if(updatesReceived > (possibleUpdates/2)) {
                 spark.logMaster.reconcileLogs();
             } else {
-                throw new Error('Logs unreconciable with majority of hosts');
+                throw new Error('Logs irreconciable with majority of hosts');
             }
         }));
     }

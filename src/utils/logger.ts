@@ -14,6 +14,6 @@ const logger = createLogger({
     ]
 });
 
-logger.level = 'silly';
+logger.level = 'info';
 
 export default logger;

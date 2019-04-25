@@ -1,5 +1,5 @@
 import { logger } from '../utils';
-import { SparkJob, SparkServer, LogEvent } from '../models';
+import { SparkJob, SparkServer, LogEvent, JobLedgerEntry } from '../models';
 import spark from "../spark";
 import * as _ from 'lodash';
 import getPort from 'get-port';
@@ -50,8 +50,6 @@ class JobRunner {
             try {
 
                 const { name, image, tags, desiredHosts, port, exposedPort, env} = this.job;
-
-
                 const res = await got.post(`${host.hostName}/runJob`, {
                     json: true,
                     body: {
@@ -77,8 +75,57 @@ class JobRunner {
                 logger.error('An error occured while deploying the job ', e);
             }
         }));
+        
+        const completing = await spark.jobLedger.getCompleting(this.job.name);
 
-        logger.info(`${this.job.name} deployed to all hosts`);
+        console.log(completing);
+        
+        if (completing) spark.queueOld(this.job, completing);
+
+        await spark.jobLedger.startJob(this.job.name);
+
+        logger.info(`${this.job.name} started on all hosts`);
+    }
+
+    stopOldContainers = async (ledgerEntry: JobLedgerEntry) => {
+        logger.info(`sending stop events old entry for ${this.job.name}`);
+
+        await Promise.all(ledgerEntry.hosts.map(async host => {
+            try {
+                const res = await got.post(`${host}/stopJob`, {
+                    json: true,
+                    body: {
+                        job: {
+                            id: ledgerEntry.id,
+                            name: this.job.name
+                        }
+                    }
+                });
+            } catch (e) {
+                logger.error('An error occured while stopping old containers', e)
+            }
+        }));
+    }
+
+    stopJob = async () => {
+        const docker = new Docker({
+            host: "127.0.0.1",
+            port: 2375
+        });
+
+        logger.info(`Stopping ${this.job.name}-${this.job.id}...`);
+
+        try {
+            const container = await docker.getContainer(`${this.job.name}-${this.job.id}`);
+
+            await container.stop();
+        } catch (e) {
+
+            logger.error(`Error while stopping container ${this.job.name}-${this.job.id}`, e)
+
+        }
+        
+
     }
 
     buildJob = async () => {
@@ -145,11 +192,7 @@ class JobRunner {
         } catch (e) {
             logger.error('An error occured while running the job', e);
         }
-        
-
-        
     }
-
 }
 
 export default JobRunner;
