@@ -127,28 +127,19 @@ class JobRunner {
         logger.info(`Pulling ${this.job.image} from dockerhub`);
 
         try {
-            await docker.pull(this.job.image, (err: Error, stream: NodeJS.ReadableStream) => {
-                if (err) {
-                    throw err
-                }
-                stream.pipe(process.stdout)
-            });
+            await docker.pull(this.job.image, {});
 
             logger.info(`Download successful`);
 
             spark.logMaster.addLog(LogEvent.ImagePulled, `${this.job.image} downloaded for job ${this.job.name}`);
 
-            await docker.createContainer(options, (err: Error, result) => {
-                if (err) throw err;
-                result!.start((startErr: Error, startRes: any) => {
-                    if (startErr) logger.error('An error occured while deploying the job', startErr);
-                })
-            });
-            const completing = await spark.jobLedger.getCompleting(this.job.name);
+            const container = await docker.createContainer(options);
+
+            logger.info(`${container.id} download for ${this.job.name}`);
+            
+            await container.start();
 
             logger.info(`${this.job.name} successfully started on ${spark.sparkServer.hostName}`)
-
-
 
             spark.logMaster.addLog(LogEvent.JobStarted, `${this.job.image} started for job ${this.job.name}`);
         } catch (e) {

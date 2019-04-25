@@ -61,7 +61,7 @@ class LogMaster {
         const uncommitedIndexes = Object.keys(this.uncommitedLogs);
         uncommitedIndexes.forEach(uncommitedIndex => {
             if (this.logs[parseInt(uncommitedIndex)] !== undefined) {
-                throw new Error(`Collision at index ${uncommitedIndex}`);
+                logger.error(`Collision at index ${uncommitedIndex} Overwriting.`);
             }
         });
     }
