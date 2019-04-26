@@ -5,3 +5,5 @@ export { default as getVote } from './getVote';
 export { default as initJob } from './initJob';
 export { default as runJob } from './runJob';
 export { default as stopJob } from "./stopJob";
+export { default as getJobs } from './getJobs';
+export { default as getJob } from './getJob';

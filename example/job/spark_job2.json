@@ -1,0 +1,11 @@
+{
+    "name": "nginx",
+    "image": "nginxdemos/hello",
+    "tags": ["example"],
+    "desiredHosts": 2,
+    "port": 80,
+    "exposedPort": "auto",
+    "env": {
+        "hello": "world"
+    }
+}

@@ -53,12 +53,16 @@ class Server extends EventEmitter implements SparkServer {
         this.httpServer.use(express.json());
 
         this.httpServer.get('/_healthz', routes.health);
+        this.httpServer.get('/getJobs', routes.getJobs);
+        this.httpServer.get('/getJob/:jobName', routes.getJob);
         this.httpServer.post('/initialConnect', routes.initialConnect);
         this.httpServer.post('/getVote', routes.getVote);
         this.httpServer.post('/getUpdate', routes.getUpdate);
         this.httpServer.post('/initJob', routes.initJob);
         this.httpServer.post('/runJob', routes.runJob);
         this.httpServer.post('/stopJob', routes.stopJob);
+        
+        
     }
 
     init = async () => {

@@ -18,18 +18,39 @@ class JobLedger implements IJobLedger {
     latestJobs = async () => {
         logger.silly('latest jobs');
 
-        const latest = await this.lock.acquire('lock', async () => 
-            await Promise.all(Object.keys(this.jobs).map(async jobKey => {
-                const latest = this.jobs[jobKey][this.jobs[jobKey].length]
-
+        const latest = await this.lock.acquire('lock', async () => {
+            const keys = Object.keys(this.jobs).map(jobKey => {
+                const entries = this.jobs[jobKey];
+                entries.reduce((earliestEntry, currEntry) => {
+                    if((currEntry.status !== JobState.Completed || currEntry.desired !== JobState.Completed) && earliestEntry.lastUpdated.isBefore(currEntry.lastUpdated)) {
+                        return currEntry;
+                    } else {
+                        return earliestEntry;
+                    }
+                });
+                const latest = entries[0]
                 return {
-                    ...latest, 
+                    ...latest,
+                    name: jobKey,
                     created: latest.created.format('lll'),
-                    lastUpdated: latest.lastUpdated.format('lll')
+                    lastUpdated: latest.lastUpdated.format('lll'),
+                    status: JobState[latest.status],
+                    desired: JobState[latest.desired],
                 }
-            }))
-        );
+            });
+            return keys;   
+        });
         return latest;
+    }
+
+    getJob = async (jobName: string) => {
+        const job = await this.lock.acquire('lock', () => {
+            const entries = this.jobs[jobName];
+
+            return entries;
+        });
+
+        return job;
     }
 
     getRunning = async (jobName: string) =>  {

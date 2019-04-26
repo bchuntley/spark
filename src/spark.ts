@@ -69,7 +69,7 @@ class Spark {
                     this.logMaster.addLog(LogEvent.Elect, `${this.sparkServer.leader!.hostName} elected`);
                     this.sparkServer.state = ServerState.Follower;
                     this.leaderStopwatch.start();
-                }
+                }   
             });
         }
     }
@@ -200,8 +200,40 @@ class Spark {
     }
 
     jobs = async () => {
-        const jobs = await this.jobLedger.latestJobs();
 
+        if (this.client) {
+            await SparkClient.jobs();
+        } else {
+            const table = new Table({
+                head: [colors.cyan('ID'), colors.cyan('Name'), colors.cyan('Status'), colors.cyan('Desired'), colors.cyan('Last Updated')],
+                colWidths: [10, 20, 15, 15, 25]
+            });
+            let jobs: any;
+
+            if ( this.sparkServer.state === ServerState.Leader) {
+                jobs = await this.jobLedger.latestJobs();
+
+                
+            } else {
+                const res = await got.get(`http://${this.sparkServer.leader!.hostName}/getJobs`, {
+                    json: true
+                })
+
+                jobs = res.body.jobs;
+            }
+            jobs!.forEach((job: any) => {
+                table.push([job.id, job.name, job.status, job.desired, job.lastUpdated]);
+            })
+
+            logger.info(`\n${table.toString()}`)
+        }
+    }
+
+    job = async (jobName: string) => {
+
+        if (this.client) {
+            await SparkClient.getJob(jobName);
+        }
     }
 }
 

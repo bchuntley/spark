@@ -5,6 +5,7 @@ import * as _ from 'lodash';
 import getPort from 'get-port';
 import Docker from 'dockerode';
 import got from 'got';
+import util from 'util';
 
 class JobRunner {
     job: SparkJob;
@@ -77,8 +78,6 @@ class JobRunner {
         }));
         
         const completing = await spark.jobLedger.getCompleting(this.job.name);
-
-        console.log(completing);
         
         if (completing) spark.queueOld(this.job, completing);
 
@@ -109,8 +108,7 @@ class JobRunner {
 
     stopJob = async () => {
         const docker = new Docker({
-            host: "127.0.0.1",
-            port: 2375
+            socketPath: '/var/run/docker.sock'
         });
 
         logger.info(`Stopping ${this.job.name}-${this.job.id}...`);
@@ -167,28 +165,32 @@ class JobRunner {
         const options = await this.buildJob();
         
         const docker = new Docker({
-            host: '127.0.0.1',
-            port: 2375,
+            socketPath: '/var/run/docker.sock'
         });
+
 
         logger.info(`Pulling ${this.job.image} from dockerhub`);
 
         try {
-            await docker.pull(this.job.image, {});
+            docker.pull(this.job.image + ":latest", {}, (err, stream) => {
+                docker.modem.followProgress(stream, async () => {
+                    logger.info(`Download successful`);
 
-            logger.info(`Download successful`);
+                    spark.logMaster.addLog(LogEvent.ImagePulled, `${this.job.image} downloaded for job ${this.job.name}`);
 
-            spark.logMaster.addLog(LogEvent.ImagePulled, `${this.job.image} downloaded for job ${this.job.name}`);
+                    const container = await docker.createContainer(options);
 
-            const container = await docker.createContainer(options);
+                    logger.info(`${container.id} download for ${this.job.name}`);
+                    
+                    await container.start();
 
-            logger.info(`${container.id} download for ${this.job.name}`);
+                    logger.info(`${this.job.name} successfully started on ${spark.sparkServer.hostName}`)
+
+                    spark.logMaster.addLog(LogEvent.JobStarted, `${this.job.image} started for job ${this.job.name}`);
+                })
+            });
+
             
-            await container.start();
-
-            logger.info(`${this.job.name} successfully started on ${spark.sparkServer.hostName}`)
-
-            spark.logMaster.addLog(LogEvent.JobStarted, `${this.job.image} started for job ${this.job.name}`);
         } catch (e) {
             logger.error('An error occured while running the job', e);
         }
