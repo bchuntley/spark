@@ -32,6 +32,7 @@ class JobRunner {
         this.availableHosts = hosts.filter(host => {
             let match = true;
             for ( let i = 0; i < this.job.tags.length; i++) {
+                if (this.job.tags.length === 0) break;
                 const tag = this.job.tags[i];
                 if (host.tags.indexOf(tag) === -1) {
                     match = false;
@@ -45,7 +46,7 @@ class JobRunner {
     }
 
     pushToHosts = async () => {
-        const { id } = await spark.jobLedger.createJob(this.job.name, this.availableHosts.map(host => host.hostName));
+        const { id } = await spark.jobLedger.createJob(this.job, this.availableHosts.map(host => host.hostName));
 
         await Promise.all(this.availableHosts.map(async host => {
             try {
@@ -108,7 +109,8 @@ class JobRunner {
 
     stopJob = async () => {
         const docker = new Docker({
-            socketPath: '/var/run/docker.sock'
+            host: "127.0.0.1",
+            port: 2375
         });
 
         logger.info(`Stopping ${this.job.name}-${this.job.id}...`);
@@ -165,7 +167,8 @@ class JobRunner {
         const options = await this.buildJob();
         
         const docker = new Docker({
-            socketPath: '/var/run/docker.sock'
+            host: "127.0.0.1",
+            port: 2375
         });
 
 
