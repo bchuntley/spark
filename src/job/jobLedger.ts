@@ -1,4 +1,4 @@
-import { JobState, IJobLedger, JobLedgerEntry } from '../models';
+import { JobState, IJobLedger, JobLedgerEntry, SparkJob } from '../models';
 import uuid from 'uuid';
 import moment = require('moment');
 import lock from 'async-lock';
@@ -103,16 +103,18 @@ class JobLedger implements IJobLedger {
         });
     }
 
-    createJob = async (jobName: string, hosts: string[]) => {
-        logger.silly(`creating job ${jobName} on ${JSON.stringify(hosts, null, 2)}`);
-        if (!this.jobs[jobName]) {
-            this.jobs[jobName] = [];
+    createJob = async (job: SparkJob, hosts: string[]) => {
+        const {name, tags, port, image} = job;
+
+        logger.silly(`creating job ${name} on ${JSON.stringify(hosts, null, 2)}`);
+        if (!this.jobs[name]) {
+            this.jobs[name] = [];
         } else {
-            await this.stopJob(jobName);
+            await this.stopJob(name);
         }
 
         let newJob = await this.lock.acquire('lock', async () => {
-            const entries = this.jobs[jobName];
+            const entries = this.jobs[name];
 
             const now = moment();
 
@@ -122,7 +124,12 @@ class JobLedger implements IJobLedger {
                 status: JobState.Received,
                 hosts,
                 created: now,
-                lastUpdated: now
+                lastUpdated: now,
+                job: {
+                    image,
+                    tags,
+                    port
+                }
             }
             logger.silly(`new Job ${JSON.stringify(newJob)}`);
 

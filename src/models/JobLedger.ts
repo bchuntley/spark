@@ -1,4 +1,4 @@
-import { JobState } from './index';
+import { JobState, SparkJob } from './index';
 import moment = require('moment');
 
 export interface JobLedgerEntry {
@@ -8,6 +8,7 @@ export interface JobLedgerEntry {
     hosts: string[],
     created: moment.Moment,
     lastUpdated: moment.Moment
+    job: Partial<SparkJob>
 }
 
 

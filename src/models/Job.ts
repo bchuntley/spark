@@ -5,11 +5,11 @@ interface SparkJob {
     tags: string[];
     desiredHosts: number;
     port: number;
-    protocol: "http" | "https";
     exposedPort: 'auto' | number;
     env: {
         [key: string]: string
-    }
+    },
+    address: string;
 }
 
 export default SparkJob;
