@@ -24,7 +24,7 @@ class JobRunner {
 
     init = () => {
         const hosts = [{
-            hostName: `htpp://${spark.sparkServer.hostName}:${spark.sparkServer.port}`,
+            hostName: `http://${spark.sparkServer.hostName}:${spark.sparkServer.port}`,
             tags: spark.sparkServer.tags,
             state: spark.sparkServer.state,
             siblings: spark.sparkServer.siblings
