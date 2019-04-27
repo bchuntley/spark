@@ -21,7 +21,8 @@ const reroute = async (req: express.Request, res: express.Response) => {
 
         const random = Math.floor(Math.random() * (entry.hosts.length - 1))
 
-        res.status(301).redirect(entry.hosts[random]);
+        const hostName = entry.hosts[random].split(":")[0]; // remove port
+        res.status(301).redirect(`${hostName}:${entry.job.port}`);
     }
 }
 
