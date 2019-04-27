@@ -173,67 +173,49 @@ class Spark {
     }
 
     status = async () => {
+        const hostAddress = `http://${this.sparkServer.hostName}:${this.sparkServer.port}`;
 
-        if (this.client) {
-            await SparkClient.status();
-        } else {
-            
-            const hostAddress = `http://${this.sparkServer.hostName}:${this.sparkServer.port}`;
+        const table = new Table({
+            head: [colors.cyan('Address'), colors.cyan('State'), colors.cyan('Status'), colors.cyan('Last Updated')],
+            colWidths: [35, 10, 15, 25]
+        });
 
-            const table = new Table({
-                head: [colors.cyan('Address'), colors.cyan('State'), colors.cyan('Status'), colors.cyan('Last Updated')],
-                colWidths: [35, 10, 15, 25]
-            });
+        await Promise.all([hostAddress, ...this.sparkServer.siblings].map(async server => {
+            try {
+                const res = await got.get(`${server}/_healthz`, { json: true, timeout: 5000 })
+                let { address, state, lastUpdated } = (res as got.Response<any>).body;
+                table.push([address, ServerState[state], colors.green('Healthy'), lastUpdated]);
+            } catch (e) {
+                table.push([server, colors.red('Dead'), colors.red('Unhealthy'), colors.red('Unknown')]);
+            }
 
-            await Promise.all([hostAddress, ...this.sparkServer.siblings].map(async server => {
-                try {
-                    const res = await got.get(`${server}/_healthz`, { json: true, timeout: 5000 })
-                    let { address, state, lastUpdated } = (res as got.Response<any>).body;
-                    table.push([address, ServerState[state], colors.green('Healthy'), lastUpdated]);
-                } catch (e) {
-                    table.push([server, colors.red('Dead'), colors.red('Unhealthy'), colors.red('Unknown')]);
-                }
-
-                logger.info(`\n${table.toString()}`);
-            }));
-        }
+            logger.info(`\n${table.toString()}`);
+        }));
     }
 
     jobs = async () => {
+        const table = new Table({
+            head: [colors.cyan('ID'), colors.cyan('Name'), colors.cyan('Status'), colors.cyan('Desired'), colors.cyan('Last Updated')],
+            colWidths: [10, 20, 15, 15, 25]
+        });
+        let jobs: any;
 
-        if (this.client) {
-            await SparkClient.jobs();
+        if ( this.sparkServer.state === ServerState.Leader) {
+            jobs = await this.jobLedger.latestJobs();
+
+            
         } else {
-            const table = new Table({
-                head: [colors.cyan('ID'), colors.cyan('Name'), colors.cyan('Status'), colors.cyan('Desired'), colors.cyan('Last Updated')],
-                colWidths: [10, 20, 15, 15, 25]
-            });
-            let jobs: any;
-
-            if ( this.sparkServer.state === ServerState.Leader) {
-                jobs = await this.jobLedger.latestJobs();
-
-                
-            } else {
-                const res = await got.get(`http://${this.sparkServer.leader!.hostName}/getJobs`, {
-                    json: true
-                })
-
-                jobs = res.body.jobs;
-            }
-            jobs!.forEach((job: any) => {
-                table.push([job.id, job.name, job.status, job.desired, job.lastUpdated]);
+            const res = await got.get(`http://${this.sparkServer.leader!.hostName}/getJobs`, {
+                json: true
             })
 
-            logger.info(`\n${table.toString()}`)
+            jobs = res.body.jobs;
         }
-    }
+        jobs!.forEach((job: any) => {
+            table.push([job.id, job.name, job.status, job.desired, job.lastUpdated]);
+        })
 
-    job = async (jobName: string) => {
-
-        if (this.client) {
-            await SparkClient.getJob(jobName);
-        }
+        logger.info(`\n${table.toString()}`)
     }
 }
 

@@ -1,3 +1,8 @@
 import spark from '../spark';
+import { SparkClient } from '../client';
 
-spark.jobs();
+if (spark.client) {
+    SparkClient.jobs();
+} else {
+    spark.jobs();
+}

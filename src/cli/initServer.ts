@@ -1,7 +1,5 @@
 import { logger, parseJSON } from '../utils';
-import * as os from 'os';
 import fs from 'fs';
-import spark from '../spark';
 import CONFIG_PATH from '../configPath';
 
 const initServer = async (file: string) => {

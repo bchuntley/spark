@@ -1,7 +1,11 @@
 import commander from 'commander';
 import spark from '../spark';
+import { SparkClient } from '../client';
 
 const program = commander
     .parse(process.argv);
 
-spark.job(program.args[0]);
+
+if (spark.client) {
+    SparkClient.getJob(program.args[0]);
+}

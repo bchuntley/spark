@@ -1,7 +1,6 @@
 import express from 'express';
 import got from 'got';
 import delay from 'delay';
-import { EventEmitter } from 'events';
 import * as routes from './routes';
 import { SparkServer, SparkJob, ServerState, ServerConfig, LogEvent } from "../models";
 import { logger } from "../utils";
@@ -10,7 +9,7 @@ import spark from '../spark';
 import { JobRunner } from '../job/';
 
 
-class Server extends EventEmitter implements SparkServer {
+class Server implements SparkServer {
     hostName: string;
     tags: string[];
     state: ServerState;
@@ -25,7 +24,6 @@ class Server extends EventEmitter implements SparkServer {
     httpServer: express.Application;
 
     constructor(options: ServerConfig) {
-        super();
         this.hostName = options.hostName || 'SparkServer';
         this.tags = options.tags || [];
         this.state = ServerState.Follower;
@@ -61,8 +59,6 @@ class Server extends EventEmitter implements SparkServer {
         this.httpServer.post('/initJob', routes.initJob);
         this.httpServer.post('/runJob', routes.runJob);
         this.httpServer.post('/stopJob', routes.stopJob);
-        
-        
     }
 
     init = async () => {

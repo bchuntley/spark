@@ -1,4 +1,9 @@
 import spark from '../spark';
+import { SparkClient } from '../client';
 
-spark.status();
+if (spark.client) {
+    SparkClient.status()
+} else {
+    spark.status()
+}
 
